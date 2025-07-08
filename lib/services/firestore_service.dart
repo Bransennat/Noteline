@@ -15,19 +15,15 @@ class FirestoreService {
     try {
       CollectionReference userNotesCollection =
           _firestore.collection('users').doc(userId).collection('notes');
-
       DocumentReference newNoteDoc = userNotesCollection.doc();
       String noteId = newNoteDoc.id;
-
       Note newNote = Note(
         id: noteId,
         title: title,
         content: content,
         createdAt: Timestamp.now(),
       );
-
       await newNoteDoc.set(newNote.toJson());
-
       return null;
     } catch (e) {
       return "Gagal menambahkan catatan: ${e.toString()}";
@@ -66,12 +62,10 @@ class FirestoreService {
           .doc(userId)
           .collection('notes')
           .doc(noteId);
-
       await noteDoc.update({
         'title': title,
         'content': content,
       });
-
       return null;
     } catch (e) {
       return "Gagal memperbarui catatan: ${e.toString()}";
@@ -91,12 +85,25 @@ class FirestoreService {
           .doc(userId)
           .collection('notes')
           .doc(noteId);
-
       await noteDoc.delete();
-
       return null;
     } catch (e) {
       return "Gagal menghapus catatan: ${e.toString()}";
+    }
+  }
+
+  //==================================================================
+  // FUNGSI UNTUK ADMIN: MENGAMBIL SEMUA PENGGUNA (BARU)
+  //==================================================================
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    try {
+      QuerySnapshot snapshot = await _firestore.collection('users').get();
+      return snapshot.docs
+          .map((doc) => doc.data() as Map<String, dynamic>)
+          .toList();
+    } catch (e) {
+      print(e); // Cetak error untuk debugging
+      return []; // Kembalikan list kosong jika error
     }
   }
 }

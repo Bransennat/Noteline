@@ -7,7 +7,7 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   //==================================================================
-  // STREAM UNTUK MEMANTAU STATUS LOGIN 
+  // STREAM UNTUK MEMANTAU STATUS LOGIN
   //==================================================================
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
@@ -30,8 +30,6 @@ class AuthService {
       // Pastikan user berhasil dibuat
       if (user != null) {
         await user.updateDisplayName(username);
-
-        // Mengirim email verifikasi ke pengguna
         await user.sendEmailVerification();
 
         // Simpan data pengguna tambahan di Cloud Firestore
@@ -45,11 +43,9 @@ class AuthService {
         // Logout otomatis agar user tidak langsung masuk
         await _auth.signOut();
 
-        // Beri pesan agar pengguna mengecek email
         return "Registrasi berhasil! Silakan cek email Anda untuk verifikasi.";
       }
     } on FirebaseAuthException catch (e) {
-      // Menangani error spesifik dari Firebase Auth
       if (e.code == 'weak-password') {
         return 'Password yang dimasukkan terlalu lemah.';
       } else if (e.code == 'email-already-in-use') {
@@ -59,12 +55,10 @@ class AuthService {
       }
       return e.message ?? "Terjadi error saat registrasi.";
     } catch (e) {
-      // Menangani error umum lainnya
       return 'Terjadi kesalahan. Silakan coba lagi.';
     }
     return 'Terjadi kesalahan yang tidak diketahui.';
   }
-
 
   //==================================================================
   // FUNGSI LOGIN PENGGUNA
@@ -74,27 +68,18 @@ class AuthService {
     required String password,
   }) async {
     try {
-      //  Coba login dengan email dan password
       await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // Cek apakah email sudah diverifikasi
       User? currentUser = _auth.currentUser;
       if (currentUser != null && !currentUser.emailVerified) {
-        // Jika belum diverifikasi, kirim pesan spesifik
-        // dan langsung logout lagi agar tidak tersangkut
         await _auth.signOut();
         return "Email belum diverifikasi. Silakan cek email Anda.";
       }
-
-      // Jika login berhasil DAN email sudah terverifikasi
       return "Login Berhasil";
-
     } on FirebaseAuthException catch (e) {
-      // Menangani error spesifik dari Firebase
-      // Kode 'invalid-credential' biasanya untuk email tidak ditemukan atau password salah
       if (e.code == 'invalid-credential') {
         return "Email atau password yang Anda masukkan salah.";
       } else if (e.code == 'invalid-email') {
@@ -102,7 +87,6 @@ class AuthService {
       }
       return e.message ?? "Terjadi error saat login.";
     } catch (e) {
-      // Menangani error umum
       return "Terjadi kesalahan. Silakan coba lagi.";
     }
   }
@@ -112,5 +96,32 @@ class AuthService {
   //==================================================================
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  //==================================================================
+  // FUNGSI UNTUK MENGECEK PERAN ADMIN (BARU)
+  //==================================================================
+  Future<bool> isAdmin() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user == null) {
+        // Jika tidak ada user yang login, sudah pasti bukan admin
+        return false;
+      }
+      // Ambil dokumen user dari Firestore
+      DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
+
+      // Cek apakah dokumen ada dan field 'role' bernilai 'admin'
+      if (doc.exists && (doc.data() as Map<String, dynamic>)['role'] == 'admin') {
+        return true;
+      }
+
+      // Jika tidak, maka bukan admin
+      return false;
+    } catch (e) {
+      // Jika terjadi error, anggap bukan admin demi keamanan
+      print(e); // Cetak error untuk debugging
+      return false;
+    }
   }
 }
